@@ -1,42 +1,6 @@
 
-typedef enum entity_type {
-	TYPE_NIL = 0,
-	TYPE_PLAYER = 1,
-	TYPE_TREE = 2,
-	TYPE_LOG_DROP = 3,
-	TYPE_ROCK = 4,
-	
-
-} entity_type;
-
-typedef struct entity {
-	Vector2 pos;
-	Vector2 scale;
-	Gfx_Image* sprite;
-	Vector4 color;
-	float speed;
-	entity_type type;
-	bool is_exist;
-	bool render;
-} entity;
-
-typedef struct sprite{
-	Gfx_Image* image;
-}sprite;
-
-typedef enum spriteID{
-	SPRITE_NIL = 0,
-	SPRITE_PLAYER = 1,
-	SPRITE_TREE0 = 2,
-	SPRITE_TREE1 = 3,
-	SPRITE_ROCK0 = 4,
-	SPRITE_ROCK1 = 5,
-	SPRITE_LOG_DROP = 6,
-	SPRITE_MAX,
-
-}spriteID;
-
-sprite sprites[SPRITE_MAX];
+#include "range.c"
+#include "entities.h"
 
 bool almost_equals(float a, float b, float epsilon) {
  return fabs(a - b) <= epsilon;
@@ -87,58 +51,17 @@ Vector2 screen_to_world() {
 	return (Vector2){ world_pos.x, world_pos.y };
 }
 
-#define MAX_ENTITIES 1024
-typedef struct World{
-	entity entities[MAX_ENTITIES];
-} World;
-
-World* world = 0;
-
-entity* entity_create(){
-	entity* found = 0;
-	for(int i = 0; i < MAX_ENTITIES; i++){
-		entity* exists = &world->entities[i];
-		if(!exists->is_exist){
-			found = exists;
-			break;
-		}
-	}
-	assert(found, "No more memory for entities");
-	return found;
+const int tile_size = 8;
+int world_to_tile_pos(float world_pos){
+	return roundf(world_pos / (float)tile_size);
 }
-
-void entity_destory(entity* ent){
-	memset(ent, 0, sizeof(entity)); 
+float tile_pos_to_world_pos(int tile_pos){
+	return((float)tile_pos * (float)tile_size);
 }
-
-//making the different entities
-void setup_rock(entity* en){
-	en->type = TYPE_ROCK;
-	en->sprite = load_image_from_disk(fixed_string("rock0.png"), get_heap_allocator());
-	en->scale = v2(25, 25);
-	en->color = COLOR_WHITE;
-	en->is_exist = true;
-	en->render = true;
-}
-void setup_tree(entity* en){
-	en->type = TYPE_TREE;
-	en->sprite = load_image_from_disk(fixed_string("tree0.png"), get_heap_allocator());
-	en->scale = v2(60, 60);
-	en->color = COLOR_BROWN;
-	en->is_exist = true;
-	en->render = true;
-}
-
-void setup_player(entity* en){
-	en->pos = v2(0,0);
-	en->scale = v2(30, 30);
-	en->speed = 300;
-	en->sprite = load_image_from_disk(fixed_string("player.png"), get_heap_allocator());
-	assert(en->sprite, "broke :(");
-	en->color = COLOR_WHITE;
-	en->type = TYPE_PLAYER;
-	en->is_exist = true;
-	en->render = true;
+Vector2 round_v2_to_tile(Vector2 world_pos){
+	world_pos.x = tile_pos_to_world_pos(world_to_tile_pos(world_pos.x));
+	world_pos.y = tile_pos_to_world_pos(world_to_tile_pos(world_pos.y));
+	return world_pos;
 }
 
 int entry(int argc, char **argv) {
@@ -147,6 +70,7 @@ int entry(int argc, char **argv) {
 	// To see all the settable window properties, ctrl+f "struct Os_Window" in os_interface.c
 	window.title = STR("Blacksmith Adventures");
 	//0x306082ff (demo bg)
+	//window.clear_color = COLOR_BLACK;
 	window.clear_color = hex_to_rgba(0x836953ff);
 	window.width = 1280;
 	window.height = 720;
@@ -154,27 +78,50 @@ int entry(int argc, char **argv) {
 	//world start
 	world = alloc(get_heap_allocator(), sizeof(World));
 
+	sprites[SPRITE_PLAYER] = (sprite){
+		.image=load_image_from_disk(STR("player.png"), get_heap_allocator()), 
+		.size= v2(8, 8)
+	};
+	sprites[SPRITE_ROCK0] = (sprite){
+		.image=load_image_from_disk(STR("rock0.png"), get_heap_allocator()),
+		.size= v2(8, 8)
+	};
+	sprites[SPRITE_TREE0] = (sprite){
+		.image=load_image_from_disk(STR("tree0.png"), get_heap_allocator()),
+		.size= v2(12, 16)
+	};
+
+	//text rendering
+	Gfx_Font *font = load_font_from_disk(STR("C:/windows/fonts/arial.ttf"), get_heap_allocator());
+	assert(font, "Failed loading arial.ttf");
+	const u32 font_height = 8;
+
 	//Entities loading
 	entity* player = entity_create();
 	setup_player(player);
 
 	//testing the new entity system
-	for (int i = 0; i < 30; i++){
+	float resource_range = 300;
+	int resource_count = 30;
+	for (int i = 0; i < resource_count; i++){
 		entity* en = entity_create();
 		setup_rock(en);
-		en->pos = v2(get_random_float32_in_range(-700, 500), get_random_float32_in_range(-700, 500));
+		en->pos = v2(get_random_float32_in_range(-resource_range, resource_range), get_random_float32_in_range(-resource_range, resource_range));
+		en->pos = round_v2_to_tile(en->pos);
 	}
-	for (int i = 0; i < 30; i++){
+	for (int i = 0; i < resource_count; i++){
 		entity* en = entity_create();
 		setup_tree(en);
-		en->pos = v2(get_random_float32_in_range(-700, 500), get_random_float32_in_range(-1000, 1000));
+		en->pos = v2(get_random_float32_in_range(-resource_range, resource_range), get_random_float32_in_range(-resource_range, resource_range));
+		en->pos = round_v2_to_tile(en->pos);
 	}
+
 	
 	float64 lastTime = os_get_current_time_in_seconds();
 	float64 secondsCounter = 0.0;
 	s32 frameCount = 0.0;
 
-	float zoom = 2.3;
+	float zoom = 4.3;
 	Vector2 camera_pos = v2(0,0);
 	
 
@@ -187,21 +134,71 @@ int entry(int argc, char **argv) {
 
 		os_update();
 
-		
-
 		draw_frame.projection = m4_make_orthographic_projection(window.width * -0.5, window.width * 0.5, window.height * -0.5, window.height * 0.5, -1, 10);
 
 		// for camera
 		{
 			Vector2 target = player->pos;
-			animate_v2_to_target(&camera_pos, target, delta_t, 10.0f);
+			animate_v2_to_target(&camera_pos, target, delta_t, 5.0f);
 			//camera_pos = 
 			draw_frame.view = m4_make_scale(v3(1.0, 1.0, 1.0));
 			draw_frame.view = m4_mul(draw_frame.view, m4_make_translation(v3(camera_pos.x, camera_pos.y, 1.0)));
 			draw_frame.view = m4_mul(draw_frame.view, m4_make_scale(v3(1.0/zoom, 1.0/zoom, 1.0)));
 		}
 
-		Vector2 mouse_pos = screen_to_world();
+		{
+			Vector2 mouse_pos = screen_to_world();
+
+			for (int i = 0; i < MAX_ENTITIES; i++){ 
+				entity* en = &world->entities[i]; //all entities
+				if (en->is_exist){ //getting all entities that exist
+					//setting up the collision
+					sprite* spr = get_sprite(en->id);
+					Range2f r = range2f_make_bottom_center(spr->size);
+					r = range2f_shift(r, en->pos);
+
+					Vector4 colour = COLOR_BLUE; //set debug color
+					colour.a = 0.3;
+
+					if(range2f_contains(r, mouse_pos)){ //if mouse is over square
+						colour.a = 1.0;
+					}
+
+					//draw_rect(r.min, range2f_size(r), colour);
+				}
+
+			}
+		
+
+		}
+
+		{ //for drawing the checkered background
+			int pl_pos_x = world_to_tile_pos(player->pos.x);
+			int pl_pos_y = world_to_tile_pos(player->pos.y);		
+			int tile_rad_x = 25;
+			int tile_rad_y = 16;
+			Vector4 tile_color = COLOR_BROWN;
+
+
+			for (int x = pl_pos_x - tile_rad_x; x < pl_pos_x + tile_rad_x; x++){
+				for (int y = pl_pos_y - tile_rad_y; y <  pl_pos_y + tile_rad_y; y++){
+					if((x + (y % 2 == 0) ) % 2 == 0){
+
+						float x_pos = x * tile_size;	
+						float y_pos =  y * tile_size;
+
+						draw_rect(
+							v2(
+								x_pos + (float)tile_size * -0.5, 
+								y_pos //+ (float)tile_size * -0.5
+							),
+							v2(tile_size, tile_size), 
+							tile_color
+						);
+					}
+				}
+			}
+		}
 
 		//drawing entities
 		for (int i = 0; i < MAX_ENTITIES; i++){
@@ -210,16 +207,21 @@ int entry(int argc, char **argv) {
 
 				switch (en->type) {
 
-				case (TYPE_PLAYER):{
-					
-				}
-
-				case(TYPE_TREE):{
-					if(mouse_pos.x == en->pos.x) { log("%i", en->type);}
-				}
-
 				default:
-					draw_image(en->sprite, en->pos, en->scale, en->color);
+					
+					sprite* s = get_sprite(en->id);
+
+					Matrix4 xform = m4_scalar(1.0);
+					xform = m4_translate(xform, v3(en->pos.x, en->pos.y, 0));
+					xform = m4_translate(xform, v3(s->size.x * -0.5, 0.0, 0));
+
+					draw_image_xform(s->image, xform, s->size, en->color);					
+
+					/*
+					draw_text(font, 
+						tprint("Positon: %f, %f", en->pos.x, en->pos.y), 
+						font_height, v2(en->pos.x - 10, en->pos.y - 10), v2(0.5,0.5), COLOR_BLUE);
+					*/
 				}
 			}
 		}
