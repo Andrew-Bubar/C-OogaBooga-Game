@@ -146,8 +146,9 @@ int entry(int argc, char **argv) {
 			draw_frame.view = m4_mul(draw_frame.view, m4_make_scale(v3(1.0/zoom, 1.0/zoom, 1.0)));
 		}
 
-		{
-			Vector2 mouse_pos = screen_to_world();
+		Vector2 mouse_pos = screen_to_world();
+
+		{ // mouse detection / collision example
 
 			for (int i = 0; i < MAX_ENTITIES; i++){ 
 				entity* en = &world->entities[i]; //all entities
@@ -173,6 +174,10 @@ int entry(int argc, char **argv) {
 		}
 
 		{ //for drawing the checkered background
+
+			int mouse_tile_x = world_to_tile_pos(mouse_pos.x);
+			int mouse_tile_y = world_to_tile_pos(mouse_pos.y);
+
 			int pl_pos_x = world_to_tile_pos(player->pos.x);
 			int pl_pos_y = world_to_tile_pos(player->pos.y);		
 			int tile_rad_x = 25;
@@ -190,7 +195,7 @@ int entry(int argc, char **argv) {
 						draw_rect(
 							v2(
 								x_pos + (float)tile_size * -0.5, 
-								y_pos //+ (float)tile_size * -0.5
+								y_pos + (float)tile_size * -0.5
 							),
 							v2(tile_size, tile_size), 
 							tile_color
@@ -198,6 +203,15 @@ int entry(int argc, char **argv) {
 					}
 				}
 			}
+
+			draw_rect( //draw mouse tile
+				v2(
+					tile_pos_to_world_pos(mouse_tile_x) + (float)tile_size * -0.5, 
+					tile_pos_to_world_pos(mouse_tile_y) + (float)tile_size * -0.5
+				),
+				v2(tile_size, tile_size), 
+				COLOR_BLUE
+			);
 		}
 
 		//drawing entities
