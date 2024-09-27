@@ -52,6 +52,7 @@ Vector2 screen_to_world() {
 }
 
 const int tile_size = 8;
+const float entity_selection_radious = 16; //radious for detection	
 int world_to_tile_pos(float world_pos){
 	return roundf(world_pos / (float)tile_size);
 }
@@ -108,12 +109,14 @@ int entry(int argc, char **argv) {
 		setup_rock(en);
 		en->pos = v2(get_random_float32_in_range(-resource_range, resource_range), get_random_float32_in_range(-resource_range, resource_range));
 		en->pos = round_v2_to_tile(en->pos);
+		en->pos.y -= tile_size * -0.5;
 	}
 	for (int i = 0; i < resource_count; i++){
 		entity* en = entity_create();
 		setup_tree(en);
 		en->pos = v2(get_random_float32_in_range(-resource_range, resource_range), get_random_float32_in_range(-resource_range, resource_range));
 		en->pos = round_v2_to_tile(en->pos);
+		en->pos.y -= tile_size * 0.5;
 	}
 
 	
@@ -138,7 +141,7 @@ int entry(int argc, char **argv) {
 
 		// for camera
 		{
-			Vector2 target = player->pos;
+		Vector2 target = player->pos;
 			animate_v2_to_target(&camera_pos, target, delta_t, 5.0f);
 			//camera_pos = 
 			draw_frame.view = m4_make_scale(v3(1.0, 1.0, 1.0));
@@ -148,7 +151,7 @@ int entry(int argc, char **argv) {
 
 		Vector2 mouse_pos = screen_to_world();
 
-		{ // mouse detection / collision example
+		/*{ // mouse detection / collision example 
 
 			for (int i = 0; i < MAX_ENTITIES; i++){ 
 				entity* en = &world->entities[i]; //all entities
@@ -171,6 +174,33 @@ int entry(int argc, char **argv) {
 			}
 		
 
+		} */
+
+		{
+			
+
+			for (int i = 0; i < MAX_ENTITIES; i++){ 
+				entity* en = &world->entities[i]; //all entities
+				if (en->is_exist){ //getting all entities that exist
+					//setting up the collision
+					sprite* spr = get_sprite(en->id);					
+					
+					if(fabsf(v2_dist(en->pos, mouse_pos)) < entity_selection_radious){
+
+						int x_pos = world_to_tile_pos(en->pos.x);
+						int y_pos =  world_to_tile_pos(en->pos.y);
+
+						draw_rect( //draw mouse tile
+							v2(
+								tile_pos_to_world_pos(x_pos) + (float)tile_size * -0.5, 
+								tile_pos_to_world_pos(y_pos) + (float)tile_size * -0.5
+							),
+							v2(tile_size, tile_size), 
+							COLOR_BLUE
+						);
+					}
+				}
+			}		
 		}
 
 		{ //for drawing the checkered background
