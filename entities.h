@@ -51,6 +51,11 @@ typedef struct World{
 
 World* world = 0;
 
+typedef struct World_Frame{
+	entity* selected_en;
+}World_Frame;
+World_Frame worldf;
+
 entity* entity_create(){
 	entity* found = 0;
 	for(int i = 0; i < MAX_ENTITIES; i++){

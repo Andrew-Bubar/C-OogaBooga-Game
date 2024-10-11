@@ -52,7 +52,7 @@ Vector2 screen_to_world() {
 }
 
 const int tile_size = 8;
-const float entity_selection_radious = 16; //radious for detection	
+const float entity_selection_radious = 16.0; //radious for detection	
 int world_to_tile_pos(float world_pos){
 	return roundf(world_pos / (float)tile_size);
 }
@@ -109,14 +109,14 @@ int entry(int argc, char **argv) {
 		setup_rock(en);
 		en->pos = v2(get_random_float32_in_range(-resource_range, resource_range), get_random_float32_in_range(-resource_range, resource_range));
 		en->pos = round_v2_to_tile(en->pos);
-		en->pos.y -= tile_size * -0.5;
+		//en->pos.y -= tile_size * -0.5;
 	}
 	for (int i = 0; i < resource_count; i++){
 		entity* en = entity_create();
 		setup_tree(en);
 		en->pos = v2(get_random_float32_in_range(-resource_range, resource_range), get_random_float32_in_range(-resource_range, resource_range));
 		en->pos = round_v2_to_tile(en->pos);
-		en->pos.y -= tile_size * 0.5;
+		//en->pos.y -= tile_size * 0.5;
 	}
 
 	
@@ -137,6 +137,9 @@ int entry(int argc, char **argv) {
 
 		os_update();
 
+		//reset the world frame data
+		worldf = (World_Frame){0};
+
 		draw_frame.projection = m4_make_orthographic_projection(window.width * -0.5, window.width * 0.5, window.height * -0.5, window.height * 0.5, -1, 10);
 
 		// for camera
@@ -151,59 +154,7 @@ int entry(int argc, char **argv) {
 
 		Vector2 mouse_pos = screen_to_world();
 
-		/*{ // mouse detection / collision example 
-
-			for (int i = 0; i < MAX_ENTITIES; i++){ 
-				entity* en = &world->entities[i]; //all entities
-				if (en->is_exist){ //getting all entities that exist
-					//setting up the collision
-					sprite* spr = get_sprite(en->id);
-					Range2f r = range2f_make_bottom_center(spr->size);
-					r = range2f_shift(r, en->pos);
-
-					Vector4 colour = COLOR_BLUE; //set debug color
-					colour.a = 0.3;
-
-					if(range2f_contains(r, mouse_pos)){ //if mouse is over square
-						colour.a = 1.0;
-					}
-
-					//draw_rect(r.min, range2f_size(r), colour);
-				}
-
-			}
-		
-
-		} */
-
-		{
-			
-
-			for (int i = 0; i < MAX_ENTITIES; i++){ 
-				entity* en = &world->entities[i]; //all entities
-				if (en->is_exist){ //getting all entities that exist
-					//setting up the collision
-					sprite* spr = get_sprite(en->id);					
-					
-					if(fabsf(v2_dist(en->pos, mouse_pos)) < entity_selection_radious){
-
-						int x_pos = world_to_tile_pos(en->pos.x);
-						int y_pos =  world_to_tile_pos(en->pos.y);
-
-						draw_rect( //draw mouse tile
-							v2(
-								tile_pos_to_world_pos(x_pos) + (float)tile_size * -0.5, 
-								tile_pos_to_world_pos(y_pos) + (float)tile_size * -0.5
-							),
-							v2(tile_size, tile_size), 
-							COLOR_BLUE
-						);
-					}
-				}
-			}		
-		}
-
-		{ //for drawing the checkered background
+				{ //for drawing the checkered background
 
 			int mouse_tile_x = world_to_tile_pos(mouse_pos.x);
 			int mouse_tile_y = world_to_tile_pos(mouse_pos.y);
@@ -233,42 +184,69 @@ int entry(int argc, char **argv) {
 					}
 				}
 			}
+		}
 
-			draw_rect( //draw mouse tile
-				v2(
-					tile_pos_to_world_pos(mouse_tile_x) + (float)tile_size * -0.5, 
-					tile_pos_to_world_pos(mouse_tile_y) + (float)tile_size * -0.5
-				),
-				v2(tile_size, tile_size), 
-				COLOR_BLUE
-			);
+		{
+			
+
+			for (int i = 0; i < MAX_ENTITIES; i++){ 
+				entity* en = &world->entities[i]; //all entities
+				if (en->is_exist){ //getting all entities that exist
+					//setting up the collision
+					sprite* spr = get_sprite(en->id);				
+
+					int x_pos = world_to_tile_pos(en->pos.x);
+					int y_pos =  world_to_tile_pos(en->pos.y);
+					
+					Vector4 col = COLOR_WHITE;
+					col.a = 0.0;	
+
+					float smal_dist = 0;
+					
+					float dist = fabsf(v2_dist(en->pos, mouse_pos));
+					if(dist < entity_selection_radious){
+						if (!worldf.selected_en || (dist < smal_dist)){
+							worldf.selected_en = en;
+							smal_dist = dist;
+
+						}
+						draw_rect(
+							v2(tile_pos_to_world_pos(x_pos) + tile_size * -0.5, tile_pos_to_world_pos(y_pos) + tile_size * -0.5),
+							v2(tile_size, tile_size), 
+							col
+						);
+						
+					}
+				}
+			}		
 		}
 
 		//drawing entities
-		for (int i = 0; i < MAX_ENTITIES; i++){
-			entity* en = &world->entities[i];
-			if(en->is_exist){
+		for (int i = 0; i < MAX_ENTITIES; i++){ 
+			entity* en = &world->entities[i]; 
+			if(en->is_exist){ 
+				switch (en->type) { 
+						default: 
+							sprite* s = get_sprite(en->id);
 
-				switch (en->type) {
+							Matrix4 xform = m4_scalar(1.0);
+							xform = m4_translate(xform, v3(0, tile_size * -0.5, 0));
+							xform = m4_translate(xform, v3(en->pos.x, en->pos.y, 0));
+							xform = m4_translate(xform, v3(s->size.x * -0.5, 0.0, 0));
 
-				default:
-					
-					sprite* s = get_sprite(en->id);
+							Vector4 col = COLOR_RED;
+							if(en == worldf.selected_en){
+								col.a = 5.0;
+							}else {
+								col = en->color;
+							}
 
-					Matrix4 xform = m4_scalar(1.0);
-					xform = m4_translate(xform, v3(en->pos.x, en->pos.y, 0));
-					xform = m4_translate(xform, v3(s->size.x * -0.5, 0.0, 0));
-
-					draw_image_xform(s->image, xform, s->size, en->color);					
-
-					/*
-					draw_text(font, 
-						tprint("Positon: %f, %f", en->pos.x, en->pos.y), 
-						font_height, v2(en->pos.x - 10, en->pos.y - 10), v2(0.5,0.5), COLOR_BLUE);
-					*/
+							draw_image_xform(s->image, xform, s->size, col);					
 				}
 			}
 		}
+
+
 
 		if (is_key_just_pressed(KEY_ESCAPE)){ // for closing the window / game
 			window.should_close = true;
